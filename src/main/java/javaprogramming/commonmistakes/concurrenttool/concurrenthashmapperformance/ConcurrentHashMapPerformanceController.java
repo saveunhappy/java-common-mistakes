@@ -32,9 +32,7 @@ public class ConcurrentHashMapPerformanceController {
         Map<String, Long> normaluse = normaluse();
         stopWatch.stop();
         Assert.isTrue(normaluse.size() == ITEM_COUNT, "normaluse size error");
-        Assert.isTrue(normaluse.entrySet().stream()
-                        .mapToLong(item -> item.getValue()).reduce(0, Long::sum) == LOOP_COUNT
-                , "normaluse count error");
+        Assert.isTrue(normaluse.entrySet().stream().mapToLong(item -> item.getValue()).reduce(0, Long::sum) == LOOP_COUNT, "normaluse count error");
         stopWatch.start("gooduse");
         Map<String, Long> gooduse = gooduse();
         stopWatch.stop();
@@ -49,6 +47,8 @@ public class ConcurrentHashMapPerformanceController {
 
     private Map<String, Long> normaluse() throws InterruptedException {
         ConcurrentHashMap<String, Long> freqs = new ConcurrentHashMap<>(ITEM_COUNT);
+        //创建10个线程，每个线程都去for循环10000000次，他们的key都是item+当前第几个线程，这个线程
+        //号是随机的，就是说你现在第一个线程，但是你put的时候是put的第二个线程的标志
         ForkJoinPool forkJoinPool = new ForkJoinPool(THREAD_COUNT);
         forkJoinPool.execute(() -> IntStream.rangeClosed(1, LOOP_COUNT).parallel().forEach(i -> {
                     String key = "item" + ThreadLocalRandom.current().nextInt(ITEM_COUNT);
@@ -71,6 +71,15 @@ public class ConcurrentHashMapPerformanceController {
         ForkJoinPool forkJoinPool = new ForkJoinPool(THREAD_COUNT);
         forkJoinPool.execute(() -> IntStream.rangeClosed(1, LOOP_COUNT).parallel().forEach(i -> {
                     String key = "item" + ThreadLocalRandom.current().nextInt(ITEM_COUNT);
+           /**
+            *
+            * computeIfAbsent(key, k -> new LongAdder()):
+            * 这是ConcurrentHashMap的一个方法。它的作用是，
+            * 当key在ConcurrentHashMap中不存在时，使用提供的lambda表达式来生成一个默认的
+            * LongAdder对象并将其作为key的值放入ConcurrentHashMap中；
+            * 如果key已经存在，则直接返回对应的LongAdder对象。这样，
+            * 每个key都对应一个独立的LongAdder对象，不会出现线程竞争问题。
+            * */
                     freqs.computeIfAbsent(key, k -> new LongAdder()).increment();
                 }
         ));
